@@ -1,0 +1,82 @@
+version: "3.5"
+
+x-logging:
+  &default-logging
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "2"
+
+networks:
+  grafana-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+       - subnet: 10.10.10.0/24
+
+services:
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:6.2.5
+    labels:
+      - container.monitoring.app=grafana
+    logging: *default-logging
+    restart: always
+    environment:
+      - TZ=Asia/Bangkok
+      - GF_PATHS_CONFIG=/grafana/config/grafana.ini
+      - GF_PATHS_LOGS=/grafana/logs
+      - GF_PATHS_PLUGINS=/grafana/plugins
+      - GF_PATHS_PROVISIONING=/grafana/provisioning
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DATABASE_TYPE=mysql
+      - GF_DATABASE_HOST=grafana-mariadb:3306
+      - GF_DATABASE_NAME=grafana
+      - GF_DATABASE_USER=root
+      - GF_DATABASE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - GF_REMOTE_CACHE_TYPE=redis
+      - GF_REMOTE_CACHE_CONNSTR=addr=grafana-redis:6379
+    env_file:
+      - .grafana.env
+    volumes:
+      - ./grafana:/grafana
+    networks:
+      - grafana-net
+    ports:
+      - 3000:3000
+    depends_on:
+      - grafana-mariadb
+      - grafana-redis
+
+  grafana-mariadb:
+    container_name: grafana-mariadb
+    image: mariadb:10.3.15-bionic
+    labels:
+      - container.monitoring.app=grafana-mariadb
+    logging: *default-logging
+    restart: always
+    environment:
+      - TZ=Asia/Bangkok
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./mariadb/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      - ./mariadb/data:/var/lib/mysql
+    networks:
+      - grafana-net
+
+  grafana-redis:
+    container_name: grafana-redis
+    image: redis:5.0.5-stretch
+    labels:
+      - container.monitoring.app=grafana-redis
+    logging: *default-logging
+    restart: always
+    command: ["redis-server", "/config/redis.conf"]
+    environment:
+      - TZ=Asia/Bangkok
+    volumes:
+      - ./redis/config:/config:ro
+    networks:
+      - grafana-net
+

@@ -1,0 +1,5 @@
+!.gitkeep
+grafana/**
+mariadb/data/**
+.env
+.grafana.env
